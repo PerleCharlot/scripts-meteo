@@ -1,16 +1,22 @@
 # options(error=recover)
 # options(error=NULL)
+library(data.table)
 
-source("R_fct/extract_meteo_data_fct.r")
+wd <- getwd()
+
+source(paste0(wd,"/extract_meteo_data_fct.r"))
 
 ############################################################################################
 # INPUT INFORMATION
 ############################################################################################
 
-path_data_allslopes="/Users/isabelleboulangeat/Documents/_data_temp/alp_allslopes/"
+#path_data_allslopes="/Users/isabelleboulangeat/Documents/_data_temp/alp_allslopes/"
+path_data_allslopes <- "//grdata2.grenoble.irstea.priv/infogeo/Meteo_France/SAFRAN_montagne-Crocus_2020/alp_allslopes/"
 year = 2017 # only one year
-NoPs = c(2168 ,1428, 1427, 1430, 2167, 2160) # one or several simulation number
 
+#NoPs = c(2168 ,1428, 1427, 1430, 2167, 2160) # one or several simulation number
+NoPs <- fread(paste0("C:/Users/perle.charlot/Documents/PhD/DATA/R_git/CaractMilieu/output/var_intermediaire/liste_NoP.csv"))
+NoPs <- NoPs$NoP
 ############################################################################################
 ## SEASON DATA, by month (number)
 ############################################################################################
@@ -19,7 +25,8 @@ NoPs = c(2168 ,1428, 1427, 1430, 2167, 2160) # one or several simulation number
 ## tmax is monthly mean of max air temperature of the day (from hourly data)
 ############################################################################################
 
-dat_season <- calc_meteo_variables_season (path_data_allslopes, year, NoPs,   months = c("04", "05", "06", "07", "08"))
+dat_season <- calc_meteo_variables_season(path_data_allslopes, year, NoPs,   
+                                          months = c("03","04", "05", "06", "07", "08","09","10"))
 
 dat_season$NoP = rownames(dat_season)
 head(dat_season)
@@ -46,7 +53,7 @@ summary(dat_season)
 # GDD is the cumulative GDD from LSD to GDD = 900
 ############################################################################################
 
-dat_periods <- calc_meteo_variables_gdd_periods (path_data_allslopes, year, NoPs, gdd_periods = c(300,600,900), tbase = 0)
+dat_periods <- calc_meteo_variables_gdd_periods(path_data_allslopes, year, NoPs, gdd_periods = c(300,600,900), tbase = 0)
 head(dat_periods)
 summary(dat_periods)
 
@@ -104,4 +111,5 @@ dat_periods$NoP = rownames(dat_periods)
 dat_NopGroups <- merge(dat_periods, NoP_group, by = "NoP") %>% 
   group_by(NoP_group) %>%
   summarise_if(is.numeric, mean)
+
 
