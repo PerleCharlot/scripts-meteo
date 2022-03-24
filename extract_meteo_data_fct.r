@@ -94,8 +94,8 @@ extract_ncdat_meteo <- function(path, variables, NoPs){
 ################################################################################
 
 extract_season_vars <- function(path_data_allslopes, year, NoPs, 
-    variables_pro = c("RN_ISBA", "TS_ISBA", "DSN_T_ISBA", "RAINF_ISBA", "TALB_ISBA"), 
-    variables_meteo = c("Tair") )# HUMREL, Wind, NEB)
+    variables_pro = c("RN_ISBA", "DSN_T_ISBA"), # "TS_ISBA","RAINF_ISBA", "TALB_ISBA"
+    variables_meteo = c("Tair","Rainf","NEB","Wind","Wind_DIR") )# HUMREL, Wind, NEB)
     {
   
   # year = 2016
@@ -139,7 +139,7 @@ return(list(dat_pro = datAll_pro, dat_meteo = datAll_meteo, dates_pro = datAll_p
 ### CALC Tmin pour frost, Tgdd = (Tmax+Tmin)/2
 ##############################################################################3
 
-calc_temperatures <- function(dat_meteo, dates){
+calc_meteo <- function(dat_meteo, dates){
 # dat_meteo = datAll_meteo
 # dates = datAll_meteo_dates
   
@@ -150,9 +150,38 @@ calc_temperatures <- function(dat_meteo, dates){
   output [[i]] <- data.frame(dat_meteo[[i]]) %>% 
     mutate(days = as.factor(dates)) %>%
     group_by(days) %>%
-    summarise(Tmin = min(Tair) - 273.15, Tmax = max(Tair)- 273.15, Tgdd = (max(Tair)+min(Tair))/2 -273.15  , n = n())
+    summarise(Tmin = min(Tair) - 273.15, 
+            Tmax = max(Tair)- 273.15, 
+            Tgdd = (max(Tair)+min(Tair))/2 -273.15, 
+            T10 = quantile(Tair, probs=c(0.1),names=FALSE) - 273.15,
+            T90 = quantile(Tair, probs=c(0.9),names=FALSE) - 273.15,
+            SumRain = sum(Rainf), #somme quantité pluie en une journée
+            SumNEB = sum(NEB),
+            SumWind = sum(Wind),
+            n = n())
+  
   }
   names(output) <- names(dat_meteo)
+  return(output)
+}
+
+calc_pro <- function(dat_pro, dates){
+  # dat_meteo = datAll_meteo
+  # dates = datAll_meteo_dates
+  
+  require(dplyr)
+  
+  output = list()
+  for (i in 1:length(dat_pro)){
+    output [[i]] <- data.frame(dat_pro[[i]]) %>% 
+      mutate(days = as.factor(dates)) %>%
+      group_by(days) %>% #ne sert à rien car c'est déjà des valeurs journalières ...
+      summarise(HtNeigmean = mean(DSN_T_ISBA), 
+                Raymean = mean(RN_ISBA),
+                n = n())
+    
+  }
+  names(output) <- names(dat_pro)
   return(output)
 }
 
@@ -161,26 +190,27 @@ calc_temperatures <- function(dat_meteo, dates){
 # SAISON VARIABLES
 ################################################################################
 
-calc_meteo_variables_season <- function(path_data_allslopes, year, NoPs,   months = c("04", "05", "06", "07", "08") ){
+calc_meteo_variables_season <- function(path_data_allslopes, year, NoPs,   
+                                        months = c("03","04", "05", "06", "07", "08","09","10") ){
   
   data = extract_season_vars(path_data_allslopes, year, NoPs)
-  data_temp = calc_temperatures (data$dat_meteo, data$dates_meteo)
+  data_meteo = calc_meteo(data$dat_meteo, data$dates_meteo)
+  data_pro = calc_pro(data$dat_pro, data$dates_pro)
   
   #### OUTPUT VARIABLES
 
-  output_vars = unlist(lapply(1:length(months), function(x) paste(c("tmin", "tmax", "tmean"), months[x], sep="_") ))
-  
-  
+  output_vars = unlist(lapply(1:length(months), 
+                              function(x) paste(c("tmin", "tmax", "tmean","t10","t90",
+                                                  "prmean","prsum","nebmean","windmean" ), 
+                                                months[x], sep="_") ))
 
-  output = data.frame(matrix(NA, ncol = length(output_vars), nrow = length(data_temp)))
+  output = data.frame(matrix(NA, ncol = length(output_vars), nrow = length(data_meteo)))
   colnames(output) = output_vars
   rownames(output) = NoPs
 
-
-
   for(nop in 1:nrow(output)){
 
-    dnop = data_temp[[nop]]
+    dnop = data_meteo[[nop]]
 
     for (m in months){
       
@@ -188,7 +218,16 @@ calc_meteo_variables_season <- function(path_data_allslopes, year, NoPs,   month
       output[nop, paste0("tmin_", m)] =  dnop[, "Tmin"] %>% slice(first:(first+30)) %>% summarise(mean(Tmin))
       output[nop, paste0("tmax_", m)] =  dnop[, "Tmax"] %>% slice(first:(first+30)) %>% summarise(mean(Tmax))
       output[nop, paste0("tmean_", m)] =  dnop[, "Tgdd"] %>% slice(first:(first+30)) %>% summarise(mean(Tgdd))
+      output[nop, paste0("t10_", m)] =  dnop[, "T10"] %>% slice(first:(first+30)) %>% summarise(mean(T10))
+      output[nop, paste0("t90_", m)] =  dnop[, "T90"] %>% slice(first:(first+30)) %>% summarise(mean(T90))
+      output[nop, paste0("prmean_", m)] =  dnop[, "SumRain"] %>% slice(first:(first+30)) %>% summarise(mean(SumRain))
+      output[nop, paste0("prsum_", m)] =  dnop[, "SumRain"] %>% slice(first:(first+30)) %>% summarise(sum(SumRain))
+      output[nop, paste0("nebmean_", m)] =  dnop[, "SumNEB"] %>% slice(first:(first+30)) %>% summarise(mean(SumNEB))
+      output[nop, paste0("windmean_", m)] =  dnop[, "SumWind"] %>% slice(first:(first+30)) %>% summarise(mean(SumWind))
       
+      # compter le nombre de jours dans le tableau data_meteo (une obs = 1 day)
+      output[nop, paste0("rain0_", m)] = length(which(dnop$SumRain[] == 0))
+      output[nop, paste0("rain0_", m)] = length(which(dnop$SumRain[] == 0))
 
     }
     #
@@ -203,14 +242,21 @@ calc_meteo_variables_season <- function(path_data_allslopes, year, NoPs,   month
 # GDD PERIODS
 ################################################################################
 
-calc_meteo_variables_gdd_periods <- function(path_data_allslopes, year, NoPs, gdd_periods = c(300,600,900), tbase = 0){
+calc_meteo_variables_gdd_periods <- function(path_data_allslopes, year, NoPs, 
+                                             gdd_periods = c(300,600,900), 
+                                             tbase = 0){
   
   data = extract_season_vars(path_data_allslopes, year, NoPs)
   data_temp = calc_temperatures (data$dat_meteo, data$dates_meteo)
   
   #### OUTPUT VARIABLES
   
-  output_vars = unlist(lapply(1:length(gdd_periods), function(x) paste(c("snowdays", "frost", "frost_severe", "radiations", "soilTemp_min", "rainfall", "gddspeed"), gdd_periods[x], sep="_")))
+  output_vars = unlist(lapply(1:length(gdd_periods), 
+                              function(x) paste(c("snowdays", "frost", 
+                                                  "frost_severe", "radiations", 
+                                                  "soilTemp_min", "rainfall", 
+                                                  "gddspeed"), 
+                                                gdd_periods[x], sep="_")))
   
   #NB il manque les colonnes en format Date que j'ajoute plus tard à la volée sinon le format est numeric
   
