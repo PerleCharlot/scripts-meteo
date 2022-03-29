@@ -26,11 +26,21 @@ NoPs <- NoPs$NoP
 ############################################################################################
 
 dat_season <- calc_meteo_variables_season(path_data_allslopes, year, NoPs,   
-                                          months = c("03","04", "05", "06", "07", "08","09","10"))
+                                          months = c("01","02","03","04", "05", "06", "07", "08","09","10","11","12"))
 
 dat_season$NoP = rownames(dat_season)
 head(dat_season)
 summary(dat_season)
+
+
+library(spei)
+penman(Tmin = dat_season, Tmax=dat_season, U2=dat_season, 
+       Ra = NA, lat = NA, Rs = NA, tsun = NA,
+       CC = NA, ed = NA, Tdew = NA, RH = NA, P = NA, P0 = NA,
+       z = NA, crop='tall', na.rm = FALSE)
+
+
+#write.csv(dat_season, paste0(wd,"/vars_mensuelles_NoP.csv"))
 
 ############################################################################################
 ## SEASON DATA, by GDD periods
@@ -89,13 +99,14 @@ ggplot(dat_date, aes(time_after_LSD,time_after_dbase)) +
 ## COMPUTING CLIMATOLOGIES - average over 30 years
 ############################################################################################
 
-climato_periods <- compute_climato (path_data_allslopes, years = c(2016, 2017), NoPs, calc_meteo_variables_gdd_periods)
+climato_periods <- compute_climato(path_data_allslopes, years = c(2016, 2017), NoPs, calc_meteo_variables_gdd_periods)
 
 head(climato_periods)
 
 ## --
 
-climato_season <- compute_climato (path_data_allslopes, years = c(2016, 2017), NoPs, calc_meteo_variables_season)
+# TODO
+climato_season <- compute_climato(path_data_allslopes, years = c(1986:2017), NoPs, calc_meteo_variables_season)
 
 head(climato_season)
 

@@ -139,7 +139,7 @@ return(list(dat_pro = datAll_pro, dat_meteo = datAll_meteo, dates_pro = datAll_p
 ### CALC Tmin pour frost, Tgdd = (Tmax+Tmin)/2
 ##############################################################################3
 
-calc_meteo <- function(dat_meteo, dates){
+calc_meteo <- function(dat_meteo, dates, tbase = 0){
 # dat_meteo = datAll_meteo
 # dates = datAll_meteo_dates
   
@@ -152,12 +152,12 @@ calc_meteo <- function(dat_meteo, dates){
     group_by(days) %>%
     summarise(Tmin = min(Tair) - 273.15, 
             Tmax = max(Tair)- 273.15, 
-            Tgdd = (max(Tair)+min(Tair))/2 -273.15, 
+            Tgdd = ((max(Tair)+min(Tair))/2 - tbase)-273.15, 
             T10 = quantile(Tair, probs=c(0.1),names=FALSE) - 273.15,
             T90 = quantile(Tair, probs=c(0.9),names=FALSE) - 273.15,
             SumRain = sum(Rainf), #somme quantité pluie en une journée
             SumNEB = sum(NEB),
-            SumWind = sum(Wind),
+            Windmean = mean(Wind),
             n = n())
   
   }
@@ -191,7 +191,7 @@ calc_pro <- function(dat_pro, dates){
 ################################################################################
 
 calc_meteo_variables_season <- function(path_data_allslopes, year, NoPs,   
-                                        months = c("03","04", "05", "06", "07", "08","09","10") ){
+                                        months = c("01","02","03","04", "05", "06", "07", "08","09","10","11","12") ){
   
   data = extract_season_vars(path_data_allslopes, year, NoPs)
   data_meteo = calc_meteo(data$dat_meteo, data$dates_meteo)
@@ -200,8 +200,12 @@ calc_meteo_variables_season <- function(path_data_allslopes, year, NoPs,
   #### OUTPUT VARIABLES
 
   output_vars = unlist(lapply(1:length(months), 
-                              function(x) paste(c("tmin", "tmax", "tmean","t10","t90",
-                                                  "prmean","prsum","nebmean","windmean" ), 
+                              function(x) paste(c("tmin", "tmax", "tmean","GDD",
+                                                  "t10","t90","nbJgel","nbJssdegel",
+                                                  "prmean","prsum","rain0",
+                                                  "nebmean","nbJneb10","nbJneb90",
+                                                  "windmean","wind10","wind90",
+                                                  "htNeigmean","raymean"), 
                                                 months[x], sep="_") ))
 
   output = data.frame(matrix(NA, ncol = length(output_vars), nrow = length(data_meteo)))
@@ -211,24 +215,52 @@ calc_meteo_variables_season <- function(path_data_allslopes, year, NoPs,
   for(nop in 1:nrow(output)){
 
     dnop = data_meteo[[nop]]
+    dnop_pro = data_pro[[nop]]
 
     for (m in months){
       
+      # variables METEO
       first = which(dnop$days == paste(year, m, "01", sep="-"))
+      
+      # Températures
       output[nop, paste0("tmin_", m)] =  dnop[, "Tmin"] %>% slice(first:(first+30)) %>% summarise(mean(Tmin))
       output[nop, paste0("tmax_", m)] =  dnop[, "Tmax"] %>% slice(first:(first+30)) %>% summarise(mean(Tmax))
       output[nop, paste0("tmean_", m)] =  dnop[, "Tgdd"] %>% slice(first:(first+30)) %>% summarise(mean(Tgdd))
-      output[nop, paste0("t10_", m)] =  dnop[, "T10"] %>% slice(first:(first+30)) %>% summarise(mean(T10))
-      output[nop, paste0("t90_", m)] =  dnop[, "T90"] %>% slice(first:(first+30)) %>% summarise(mean(T90))
+      output[nop, paste0("GDD_", m)] =  dnop[, "Tgdd"] %>% slice(first:(first+30)) %>% summarise(sum(Tgdd))
+      output[nop, paste0("t10_", m)] =  dnop[, "T10"] %>% slice(first:(first+30)) %>% summarise(mean(T10)) #moyenne des T10 journalières
+      output[nop, paste0("t90_", m)] =  dnop[, "T90"] %>% slice(first:(first+30)) %>% summarise(mean(T90))      # nombre de jours de gel (Tmin < -5°C)
+      output[nop, paste0("nbJgel_", m)] =  dnop[, "Tmin"] %>% slice(first:(first+30)) %>% summarise(length(which(Tmin < -5 )))
+      # nombre de jours sans dégel (Tmax <= 0°C)
+      output[nop, paste0("nbJssdegel_", m)] =  dnop[, "Tmax"] %>% slice(first:(first+30)) %>% summarise(length(which(Tmax <= 0 )))
+      
+      # Précipitations
       output[nop, paste0("prmean_", m)] =  dnop[, "SumRain"] %>% slice(first:(first+30)) %>% summarise(mean(SumRain))
       output[nop, paste0("prsum_", m)] =  dnop[, "SumRain"] %>% slice(first:(first+30)) %>% summarise(sum(SumRain))
-      output[nop, paste0("nebmean_", m)] =  dnop[, "SumNEB"] %>% slice(first:(first+30)) %>% summarise(mean(SumNEB))
-      output[nop, paste0("windmean_", m)] =  dnop[, "SumWind"] %>% slice(first:(first+30)) %>% summarise(mean(SumWind))
+      # nombre de jours sans pluie
+      output[nop, paste0("rain0_", m)] =  dnop[, "SumRain"] %>% slice(first:(first+30)) %>% summarise(length(which(SumRain == 0)))
       
-      # compter le nombre de jours dans le tableau data_meteo (une obs = 1 day)
-      output[nop, paste0("rain0_", m)] = length(which(dnop$SumRain[] == 0))
-      output[nop, paste0("rain0_", m)] = length(which(dnop$SumRain[] == 0))
+      # Nébulosité
+      # SumNEB varie entre 0 et 24 (car NEB varie entre 0 et 1)
+      output[nop, paste0("nebmean_", m)] =  dnop[, "SumNEB"] %>% slice(first:(first+30)) %>% summarise(mean(SumNEB))
+      # nombre de jours à nébulosité faible (< à 1/10e du max)
+      output[nop, paste0("nbJneb10_", m)] =  dnop[, "SumNEB"] %>% slice(first:(first+30)) %>% summarise(length(which(SumNEB <= 24/10 )))
+      # nombre de jours à nébulosité forte (> à 9/10e du max)
+      output[nop, paste0("nbJneb90_", m)] =  dnop[, "SumNEB"] %>% slice(first:(first+30)) %>% summarise(length(which(SumNEB >= (24*9)/10 )))
+      
+      # Vent
+      output[nop, paste0("windmean_", m)] =  dnop[, "Windmean"] %>% slice(first:(first+30)) %>% summarise(mean(Windmean))
+      output[nop, paste0("wind10_", m)] =  dnop[, "Windmean"] %>% slice(first:(first+30)) %>% summarise(quantile(Windmean, probs=c(0.1),names=FALSE))
+      output[nop, paste0("wind90_", m)] =  dnop[, "Windmean"] %>% slice(first:(first+30)) %>% summarise(quantile(Windmean, probs=c(0.9),names=FALSE))
+      
+      
+      # variables PRO
+      first_pro = which(dnop_pro$days == paste(year, m, "01", sep="-"))
+      # Neige
+      output[nop, paste0("htNeigmean_", m)] =  dnop_pro[, "HtNeigmean"] %>% slice(first_pro:(first_pro+30)) %>% summarise(mean(HtNeigmean))
+      # Rayonnement
+      output[nop, paste0("raymean_", m)] =  dnop_pro[, "Raymean"] %>% slice(first_pro:(first_pro+30)) %>% summarise(mean(Raymean))
 
+      
     }
     #
   }
@@ -247,7 +279,7 @@ calc_meteo_variables_gdd_periods <- function(path_data_allslopes, year, NoPs,
                                              tbase = 0){
   
   data = extract_season_vars(path_data_allslopes, year, NoPs)
-  data_temp = calc_temperatures (data$dat_meteo, data$dates_meteo)
+  data_temp = calc_temperatures(data$dat_meteo, data$dates_meteo)
   
   #### OUTPUT VARIABLES
   
@@ -441,8 +473,12 @@ calc_meteo_variables_date <- function(path_data_allslopes, year, NoPs, days, tba
 ############################################################################################
 
 compute_climato <- function(path_data_allslopes, years, NoPs, meteo_function){
-  # meteo_function = calc_meteo_variables_gdd_periods
-  # years = c(2016, 2017)
+  
+  # # TEST
+  # meteo_function = calc_meteo_variables_season
+  # years = c(2006:2017)
+  
+  
   output <- lapply(years, function(y){
     meteo_function(path_data_allslopes, y, NoPs)
   } )
