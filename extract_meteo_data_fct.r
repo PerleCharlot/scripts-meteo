@@ -40,13 +40,19 @@ extract_ncdat_pro <- function(path, variables, NoPs){
 
 extract_ncdat_meteo <- function(path, variables, NoPs){
  
+  # #TEST
+  # path = paste0(path_data_allslopes, "meteo/FORCING_",as.character(year),"080106_",as.character(year+1),"080106.nc")
+  # variables = c("Tair","Rainf","NEB","Wind","Wind_DIR","HUMREL")
+  # NoPs = NoPs
+  
   nc.read = nc_open(path)
   
   # nc.read
   # attributes(nc.read)$name
   # attributes(nc.read$var)$name
   # attributes(nc.read$dim)$name
-  # ncvar_get(nc.read, "Tair")->aa
+  # aaa <- unique(NoPs)[1]
+  # ncvar_get(nc.read, "Tair")[aaa,]
   
   time<-ncvar_get(nc.read,"time")
   tunits<-ncatt_get(nc.read,"time",attname="units")
@@ -57,8 +63,8 @@ extract_ncdat_meteo <- function(path, variables, NoPs){
   # print(length(time))
   time2 = c(rep(0, 18), rep(1:364, each = 24), rep(365, 7))
   
-  if(length(time)==length(time2)) dates<-as.Date(time2,origin=unlist(tustr)[3]) 
-  else {
+  if(length(time)==length(time2)) {
+    dates <-as.Date(time2,origin=unlist(tustr)[3])  }  else {
     # warning("")
    time[1:length(time2)] = time2 
    time[length(time2):length(time)] = 365
@@ -82,12 +88,56 @@ extract_ncdat_meteo <- function(path, variables, NoPs){
     nc.data = list(nc.data)
     names(nc.data) = NoPs
   }
+  # associer altitude, latitude à chaque NoPs
+  b <- ncvar_get(nc.read,"LAT")[unique(NoPs)]
+  rownames(b) = NoPs
+
+  
   nc_close(nc.read)
   return(list(data = nc.data, dates=dates))
   
-  nc_close(nc.read)
-  return(list(data = nc.data, dates = dates))
 }
+
+# extract_LAT_meteo <- function(path, NoPs){
+# 
+#   # #TEST
+#   # path = paste0(path_data_allslopes, "meteo/FORCING_",as.character(year),"080106_",as.character(year+1),"080106.nc")
+#   # variables = c("Tair","Rainf","NEB","Wind","Wind_DIR","HUMREL")
+#   # NoPs = NoPs
+# 
+#   nc.read = nc_open(path)
+# 
+#   # nc.read
+#   # attributes(nc.read)$name
+#   # attributes(nc.read$var)$name
+#   # attributes(nc.read$dim)$name
+#   # aaa <- unique(NoPs)[1]
+#   # ncvar_get(nc.read, "Tair")[aaa,]
+# 
+#   time<-ncvar_get(nc.read,"time")
+#   tunits<-ncatt_get(nc.read,"time",attname="units")
+#   tustr<-strsplit(tunits$value, " ")
+# 
+#   print("extracting from ...")
+#   print(tunits$value)
+#   # print(length(time))
+#   time2 = c(rep(0, 18), rep(1:364, each = 24), rep(365, 7))
+# 
+#   if(length(time)==length(time2)) {
+#     dates <-as.Date(time2,origin=unlist(tustr)[3])  }  else {
+#       # warning("")
+#       time[1:length(time2)] = time2
+#       time[length(time2):length(time)] = 365
+#       dates<-as.Date(time,origin=unlist(tustr)[3])
+#     }
+# 
+#   df.Z = data.frame(NoPs= NoPs, Z=ncvar_get(nc.read,"ZS")[unique(NoPs)])
+#   
+# 
+#   nc_close(nc.read)
+#   return(list(data = nc.data, dates=dates))
+# 
+# }
 
 ##############################################################################3
 # SAISON INPUT VARS
@@ -95,7 +145,7 @@ extract_ncdat_meteo <- function(path, variables, NoPs){
 
 extract_season_vars <- function(path_data_allslopes, year, NoPs, 
     variables_pro = c("RN_ISBA", "DSN_T_ISBA"), # "TS_ISBA","RAINF_ISBA", "TALB_ISBA"
-    variables_meteo = c("Tair","Rainf","NEB","Wind","Wind_DIR") )# HUMREL, Wind, NEB)
+    variables_meteo = c("Tair","Rainf","NEB","Wind","Wind_DIR","HUMREL") )# HUMREL, Wind, NEB)
     {
   
   # year = 2016
@@ -140,13 +190,20 @@ return(list(dat_pro = datAll_pro, dat_meteo = datAll_meteo, dates_pro = datAll_p
 ##############################################################################3
 
 calc_meteo <- function(dat_meteo, dates, tbase = 0){
+  
 # dat_meteo = datAll_meteo
 # dates = datAll_meteo_dates
+  # TEST
+  # tbase=0
+  # dat_meteo = data$dat_meteo
+  # dates = data$dates_meteo
   
   require(dplyr)
   
   output = list()
   for (i in 1:length(dat_meteo)){
+    # TEST
+    # i = 1
   output [[i]] <- data.frame(dat_meteo[[i]]) %>% 
     mutate(days = as.factor(dates)) %>%
     group_by(days) %>%
@@ -191,7 +248,7 @@ calc_pro <- function(dat_pro, dates){
 ################################################################################
 
 calc_meteo_variables_season <- function(path_data_allslopes, year, NoPs,   
-                                        months = c("01","02","03","04", "05", "06", "07", "08","09","10","11","12") ){
+                                        months=c("01","02","03","04", "05", "06", "07", "08","09","10","11","12")){
   
   data = extract_season_vars(path_data_allslopes, year, NoPs)
   data_meteo = calc_meteo(data$dat_meteo, data$dates_meteo)
