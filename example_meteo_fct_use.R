@@ -29,6 +29,7 @@ NoPs <- as.numeric(NoPs$NoP)
 
 dat_season <- calc_meteo_variables_season(path_data_allslopes, year, NoPs,   
                                           months = c("08"))
+
 #c("01","02","03","04", "05", "06", "07", "08","09","10","11","12")
 
 dat_season$NoP = rownames(dat_season)
@@ -38,15 +39,7 @@ summary(dat_season)
 
 names(dat_season)
 
-library(SPEI)
-ETP1 <- penman(Tmin = dat_season$tmin_08[1], Tmax=dat_season$tmax_08[1], U2=dat_season$windmean_08[1], 
-        lat = 45.27395, Rs = dat_season$raymean_08[1],
-       z = df.Z$Z[1], crop='tall')
 
-ETP2 <- thornthwaite(dat_season$tmean_08[1],lat = 45.27395)
-
-
-ETP3 <- hargreaves(Tmin=dat_season$tmin_08[1], Tmax= dat_season$tmax_08[1],lat=45.27395, Pre=dat_season$prmean_08[1])
 
 #write.csv(dat_season, paste0(wd,"/vars_mensuelles_NoP.csv"))
 
