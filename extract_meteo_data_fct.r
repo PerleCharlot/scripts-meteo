@@ -144,8 +144,16 @@ extract_ncdat_meteo <- function(path, variables, NoPs){
 ################################################################################
 
 extract_season_vars <- function(path_data_allslopes, year, NoPs, 
-    variables_pro = c("RN_ISBA", "DSN_T_ISBA"), # "TS_ISBA","RAINF_ISBA", "TALB_ISBA"
-    variables_meteo = c("Tair","Rainf","NEB","Wind","Wind_DIR","HUMREL") )# HUMREL, Wind, NEB)
+    variables_pro = c("RN_ISBA",    # W/m2
+                    "DSN_T_ISBA"),  # m
+    # "TS_ISBA","RAINF_ISBA", "TALB_ISBA"
+    variables_meteo = c("Tair",     # K
+                        "Rainf",    # kg/m2/s et comme 1 kg = 1L, alors 1 kg/m² = 1 mm² de pluie
+                        "NEB",      # [0;1]
+                        "Wind",     # m/s
+                        "Wind_DIR", # deg
+                        "HUMREL")   # %
+                        )
     {
   
   # year = 2016
