@@ -221,6 +221,11 @@ calc_meteo <- function(dat_meteo, dates, tbase = 0){
             T10 = quantile(Tair, probs=c(0.1),names=FALSE) - 273.15,
             T90 = quantile(Tair, probs=c(0.9),names=FALSE) - 273.15,
             SumRain = sum(Rainf), #somme quantité pluie en une journée
+            
+            precip = sum(Rainf*60*60), 
+            # si Rainf est en mm.s-1 alors en une heure il faut multiplier par 60 sec * 60 min
+            # puis faire la somme des 24h pour avoir sur une journée
+            
             SumNEB = sum(NEB),
             Windmean = mean(Wind),
             n = n())
@@ -267,7 +272,7 @@ calc_meteo_variables_season <- function(path_data_allslopes, year, NoPs,
   output_vars = unlist(lapply(1:length(months), 
                               function(x) paste(c("tmin", "tmax", "tmean","GDD",
                                                   "t10","t90","nbJgel","nbJssdegel",
-                                                  "prmean","prsum","rain0",
+                                                  "prmean","prsum","precipsum","rain0",
                                                   "nebmean","nbJneb10","nbJneb90",
                                                   "windmean","wind10","wind90",
                                                   "htNeigmean","raymean"), 
@@ -301,6 +306,9 @@ calc_meteo_variables_season <- function(path_data_allslopes, year, NoPs,
       # Précipitations
       output[nop, paste0("prmean_", m)] =  dnop[, "SumRain"] %>% slice(first:(first+30)) %>% summarise(mean(SumRain))
       output[nop, paste0("prsum_", m)] =  dnop[, "SumRain"] %>% slice(first:(first+30)) %>% summarise(sum(SumRain))
+      
+      output[nop, paste0("precipsum_", m)] =  dnop[, "precip"] %>% slice(first:(first+30)) %>% summarise(sum(precip))
+      
       # nombre de jours sans pluie
       output[nop, paste0("rain0_", m)] =  dnop[, "SumRain"] %>% slice(first:(first+30)) %>% summarise(length(which(SumRain == 0)))
       
