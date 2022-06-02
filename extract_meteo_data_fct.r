@@ -144,7 +144,8 @@ extract_ncdat_meteo <- function(path, variables, NoPs){
 ################################################################################
 
 extract_season_vars <- function(path_data_allslopes, year, NoPs, 
-    variables_pro = c("RN_ISBA",    # W/m2
+    variables_pro = c("RN_ISBA",    # W.m-² surface_net_downward_radiative_flux
+                      "SWD_ISBA",   # W.m-² surface_downwelling_shortwave_flux_in_air
                     "DSN_T_ISBA"),  # m
     # "TS_ISBA","RAINF_ISBA", "TALB_ISBA"
     variables_meteo = c("Tair",     # K
@@ -248,6 +249,7 @@ calc_pro <- function(dat_pro, dates){
       group_by(days) %>% #ne sert à rien car c'est déjà des valeurs journalières ...
       summarise(HtNeigmean = mean(DSN_T_ISBA), 
                 Raymean = mean(RN_ISBA),
+                SWDmean = mean(SWD_ISBA),
                 n = n())
     
   }
@@ -275,7 +277,7 @@ calc_meteo_variables_season <- function(path_data_allslopes, year, NoPs,
                                                   "prmean","prsum","precipsum","rain0",
                                                   "nebmean","nbJneb10","nbJneb90",
                                                   "windmean","wind10","wind90",
-                                                  "htNeigmean","raymean"), 
+                                                  "htNeigmean","raymean","SWDmean"), 
                                                 months[x], sep="_") ))
 
   output = data.frame(matrix(NA, ncol = length(output_vars), nrow = length(data_meteo)))
@@ -332,7 +334,8 @@ calc_meteo_variables_season <- function(path_data_allslopes, year, NoPs,
       output[nop, paste0("htNeigmean_", m)] =  dnop_pro[, "HtNeigmean"] %>% slice(first_pro:(first_pro+30)) %>% summarise(mean(HtNeigmean))
       # Rayonnement
       output[nop, paste0("raymean_", m)] =  dnop_pro[, "Raymean"] %>% slice(first_pro:(first_pro+30)) %>% summarise(mean(Raymean))
-
+      output[nop, paste0("SWDmean_", m)] =  dnop_pro[, "SWDmean"] %>% slice(first_pro:(first_pro+30)) %>% summarise(mean(SWDmean))
+      
       
     }
     #
